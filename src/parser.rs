@@ -27,6 +27,12 @@ pub enum Check {
     Bitmask(u64),
     Thermal(f64),
     Sparsity(u32),
+    /// Binary constraint: variable `target` must have the same value as current
+    Equal(String),
+    /// Binary constraint: variable `target` must have a different value from current
+    NotEqual(String),
+    /// Implication: current variable being Pos/Zero implies `target` must be Pos/Zero
+    Imply { target: String },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -197,6 +203,22 @@ fn parse_check(line: &str, line_num: usize) -> Result<Option<Check>, ParseError>
         let inner = extract_parens(line, "sparsity", line_num)?;
         let val = parse_number(&inner, line_num)?;
         Ok(Some(Check::Sparsity(val as u32)))
+    } else if line.starts_with("equal(") {
+        let inner = extract_parens(line, "equal", line_num)?;
+        let target = inner.trim().trim_matches('"').to_string();
+        Ok(Some(Check::Equal(target)))
+    } else if line.starts_with("not_equal(") {
+        let inner = extract_parens(line, "not_equal", line_num)?;
+        let target = inner.trim().trim_matches('"').to_string();
+        Ok(Some(Check::NotEqual(target)))
+    } else if line.starts_with("imply(") {
+        let inner = extract_parens(line, "imply", line_num)?;
+        let parts: Vec<&str> = inner.split(',').map(|s| s.trim()).collect();
+        if parts.len() >= 2 {
+            Ok(Some(Check::Imply { target: parts[1].trim_matches('"').to_string() }))
+        } else {
+            Ok(Some(Check::Imply { target: inner.trim().trim_matches('"').to_string() }))
+        }
     } else if line.starts_with('@') || line.is_empty() {
         Ok(None) // annotation or empty, skip
     } else {

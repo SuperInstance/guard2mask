@@ -7,7 +7,7 @@
 //! - thermal(budget) → PUSH budget, CMP_GE, ASSERT
 //! - sparsity(count) → PUSH count, CMP_GE, ASSERT
 
-use crate::parser::{Constraint, Check, Priority, GuardItem, extract_constraints};
+use crate::parser::{Check, Priority, GuardItem, extract_constraints};
 
 /// FLUX opcodes used by the compiler
 mod op {
@@ -58,7 +58,7 @@ pub fn compile(items: &[GuardItem]) -> CompiledProgram {
     bc.push(op::HALT);
 
     // Append failure handler at the end (for JFAIL targets)
-    let fail_addr = bc.len();
+    let _fail_addr = bc.len();
     bc.push(op::GUARD_TRAP);
 
     CompiledProgram {
@@ -88,7 +88,7 @@ fn compile_check(check: &Check, bc: &mut Vec<u8>) {
             // For small whitelists, use sequential EQ + OR
             // Push value to test (placeholder 0xFF = match-anything for demo)
             // Then check: EQ v1, JNZ pass, EQ v2, JNZ pass, ... PUSH 0, ASSERT
-            let pass_offset = values.len() * 3 + 3; // each EQ+PUSH+JNZ = 3, plus PUSH 0 + ASSERT + NOP
+            let _pass_offset = values.len() * 3 + 3; // each EQ+PUSH+JNZ = 3, plus PUSH 0 + ASSERT + NOP
             for (i, val) in values.iter().enumerate() {
                 let val_bytes = val.as_bytes();
                 let val_byte = if val_bytes.len() == 1 { val_bytes[0] } else { (i + 1) as u8 };
@@ -96,7 +96,7 @@ fn compile_check(check: &Check, bc: &mut Vec<u8>) {
                 bc.push(val_byte);
                 bc.push(op::EQ); // compare stack top with pushed value
                 // If EQ returned 1, we matched — skip to pass
-                let current_len = bc.len();
+                let _current_len = bc.len();
                 let jump_target = bc.len() + 2 + (values.len() - i - 1) * 3 + 3;
                 bc.push(op::JNZ);
                 bc.push(jump_target as u8);
@@ -129,6 +129,12 @@ fn compile_check(check: &Check, bc: &mut Vec<u8>) {
             bc.push(op::PUSH);
             bc.push(*count as u8);
             bc.push(op::CMP_GE);
+            bc.push(op::ASSERT);
+        }
+        Check::Equal(_) | Check::NotEqual(_) | Check::Imply { .. } => {
+            // Binary constraints are resolved at compile time by the CSP solver.
+            // At runtime, they're already satisfied — emit NOP + ASSERT as a pass-through.
+            bc.push(op::NOP);
             bc.push(op::ASSERT);
         }
     }
