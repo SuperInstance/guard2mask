@@ -2,21 +2,36 @@
 //!
 //! Compiles GUARD DSL safety constraints to GDSII mask patterns for FLUX-LUCID hardware.
 //!
-//! Pipeline: GUARD source → parse → compile → FLUX bytecode → VM execution
+//! Pipeline: GUARD source → parse → compile → CSP solve → GDSII generation
 //!
-//! # Example
+//! # Example: Solving a CSP
 //! ```rust
-//! use guard2mask::{parse_guard, compile};
+//! use guard2mask::{CSP, TernaryWeight, solve_csp};
 //!
-//! let src = r#"
-//!     constraint altitude @priority(HARD) {
-//!         range(0, 15000)
-//!         bitmask(0x3F)
-//!     }
-//! "#;
-//! let items = parse_guard(src).unwrap();
-//! let program = compile(&items);
-//! // program.bytecode is now FLUX bytecode ready for flux-vm
+//! let mut csp = CSP::new();
+//! csp.add_variable("throttle", vec![
+//!     TernaryWeight::Neg, TernaryWeight::Zero, TernaryWeight::Pos,
+//! ]);
+//! csp.add_variable("engine_rpm", vec![
+//!     TernaryWeight::Neg, TernaryWeight::Zero, TernaryWeight::Pos,
+//! ]);
+//!
+//! csp.add_imply("throttle", TernaryWeight::Neg, "engine_rpm", TernaryWeight::Neg);
+//!
+//! if let Some(assignment) = solve_csp(&csp) {
+//!     println!("Found solution!");
+//! }
+//! ```
+//!
+//! # Example: Generating GDSII
+//! ```rust
+//! use guard2mask::{generate_patterns, generate_gdsii, write_gdsii_file, Assignment, TernaryWeight};
+//!
+//! let mut assign = Assignment::new();
+//! assign.values.insert("throttle".to_string(), TernaryWeight::Zero);
+//! let patterns = generate_patterns(&assign);
+//! let gdsii = generate_gdsii(&patterns);
+//! // write_gdsii_file("output.gds", &gdsii);
 //! ```
 
 pub mod types;
