@@ -211,13 +211,9 @@ fn backtrack(
         // Forward checking: prune domains of unassigned variables
         let saved_domains = forward_check(csp, domains, assignment, var);
 
-        // If forward checking didn't wipe out any domain, recurse
+        // If forward checking didn't wipe out any domain, recurse with pruned domains
         let has_empty = saved_domains.iter().any(|(_, d)| d.is_empty());
         let (conflict_set, result) = if !has_empty {
-            // Restore domains from forward checking
-            for (v, d) in &saved_domains {
-                domains.insert(v.clone(), d.clone());
-            }
             backtrack(csp, domains, assignment, _depth + 1)
         } else {
             // Forward checking found inconsistency — conflict set = current var
@@ -225,6 +221,11 @@ fn backtrack(
             cs.insert(var.to_string());
             (cs, false)
         };
+
+        // Restore domains to original state (undo forward checking)
+        for (v, d) in &saved_domains {
+            domains.insert(v.clone(), d.clone());
+        }
 
         if result {
             return (HashSet::new(), true);
@@ -243,11 +244,6 @@ fn backtrack(
 
         // Undo assignment
         assignment.values.remove(var);
-
-        // Restore domains
-        for (v, d) in &saved_domains {
-            domains.insert(v.clone(), d.clone());
-        }
     }
 
     // All values tried and all failed
